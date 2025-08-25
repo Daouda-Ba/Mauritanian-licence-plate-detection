@@ -1,4 +1,4 @@
-# plate-recognition > 2025-08-25 9:02am
+# plate-recognition 
 https://universe.roboflow.com/daouda-projects/license-plate-recognition-rxg4e-yfkvw/dataset/1
 
 Provided by a Roboflow user
