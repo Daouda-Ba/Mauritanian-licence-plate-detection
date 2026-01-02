@@ -1,12 +1,11 @@
 import streamlit as st
-from ultralytics import YOLO
-from paddleocr import PaddleOCR
 import cv2
 import numpy as np
-import re
-import tempfile
 import pandas as pd
-import os
+
+from src.config import MIN_CONF_YOLO_DEFAULT, MIN_SCORE_OCR_DEFAULT, TOP_K_DEFAULT, AGGRESSIVE_PREPROCESS_DEFAULT
+from src.models import load_ocr, load_yolo
+from src.ocr_pipeline import ocr_plate
 
 #  --- Style page ---
 st.set_page_config(page_title="🚘 Plate Detection & OCR", layout="wide")
@@ -16,42 +15,17 @@ st.markdown("<h1 style='text-align: center; color: #2c3e50;'>📸 License Plate 
 with st.sidebar:
     st.title(" Configuration")
     ocr_lang = st.radio("Choisissez la langue OCR :", ("English", "Arabic"))
+    min_conf_yolo = st.slider("Seuil de confiance YOLO", 0.1, 0.9, float(MIN_CONF_YOLO_DEFAULT), 0.05)
+    min_score_ocr = st.slider("Seuil de score OCR", 0.1, 0.9, float(MIN_SCORE_OCR_DEFAULT), 0.05)
+    aggressive_preprocess = st.checkbox("Prétraitement agressif", value=AGGRESSIVE_PREPROCESS_DEFAULT)
+    only_top = st.checkbox("OCR seulement sur meilleures plaques (top-k)")
+    top_k = st.slider("Top-k détections YOLO", 1, 5, TOP_K_DEFAULT) if only_top else None
     st.markdown("---")
     st.info(" Uploadez une image pour lancer la détection", icon="ℹ️")
 
 #  Load models
-@st.cache_resource
-def load_models(selected_lang):
-    yolo = YOLO("best.pt")
-    ocr = PaddleOCR(use_angle_cls=True, lang='en' if selected_lang == "English" else 'ar')
-    return yolo, ocr
-
-yolo_model, ocr = load_models(ocr_lang)
-
-#  Définir les patterns & régions
-series_patterns = [
-    ("Série normale", re.compile(r"^\d{4}\s*[A-Z]{2}\s*\d{2,3}$")),
-    ("Série diplomatique (CD)", re.compile(r"^[A-Z]{2,3}\s*CD\s*\d{4}$")),
-    ("Série diplomatique (CMD)", re.compile(r"^[A-Z]{2,3}\s*CMD\s*\d{4}$")),
-    ("Série diplomatique (CC)", re.compile(r"^[A-Z]{2,3}\s*CC\s*\d{4}$")),
-    ("Série ONU", re.compile(r"^ONU(?:\s*CMD)?\s*\d{4}$")),
-    ("Série ASNA", re.compile(r"^ASNA(?:\s*CMD)?\s*\d{4}$")),
-    ("Série TT", re.compile(r"^[A-Z]\s*\d{5}\s*TT(?:\s*ER)?$")),
-    ("Série IT", re.compile(r"^\d{4}\s*IT$")),
-    ("Série IF", re.compile(r"^\d{4,5}\s*IF$")),
-    ("Série Zone Franche", re.compile(r"^ZFN\s*\d{5}$")),
-    ("Série Service Gouvernemental", re.compile(r"^SG\s*\d{5}$")),
-    ("Service Conseil Constitutionnel", re.compile(r"^SCC\s*\d{5}$")),
-    ("Service parlementaire", re.compile(r"^SP\s*\d{5}$")),
-    ("Numérotation Tricycle", re.compile(r"^WT\s*\d{5}$")),
-    ("Format spécial (LNNN)", re.compile(r"^[A-Z]\d{3}$")),
-]
-
-regions_map = {
-    "00": "Nouakchott", "01": "Hawd Charki", "02": "Hawd Karbi", "03": "Assaba", "04": "Gorgol",
-    "05": "Brakna", "06": "Trarza", "07": "Adrar", "08": "Nouadhibou", "09": "Teganete",
-    "10": "Gidimaka", "11": "Tiris Zemmour", "12": "Inchiri"
-}
+yolo_model = load_yolo()
+ocr_model = load_ocr(ocr_lang)
 
 # 📤 Upload image
 uploaded_file = st.file_uploader("📷 Choisissez une image :", type=["jpg", "jpeg", "png"])
@@ -64,73 +38,58 @@ if uploaded_file:
     st.image(img, caption=" Image originale", use_container_width=True)
 
     with st.spinner("🔍 Détection en cours avec YOLO..."):
-        results = yolo_model.predict(source=img, save=False)
-        plates = results[0].boxes.xyxy.cpu().numpy()
+        results = yolo_model.predict(source=img, save=False, conf=min_conf_yolo, verbose=False)
+        boxes = results[0].boxes
 
-    st.success(f"✅ {len(plates)} plaque(s) détectée(s).")
+    bboxes = boxes.xyxy.cpu().numpy() if hasattr(boxes, "xyxy") else []
+    confs = boxes.conf.cpu().numpy() if hasattr(boxes, "conf") else []
+    detections = list(zip(bboxes, confs))
+    detections = sorted(detections, key=lambda d: d[1], reverse=True)
+    if only_top and top_k:
+        detections = detections[:top_k]
+
+    st.success(f"✅ {len(detections)} plaque(s) analysée(s).")
 
     results_summary = []
 
-    for idx, (x1, y1, x2, y2) in enumerate(plates):
-        h, w, _ = img.shape
-        pad = 5
-        x1p, y1p = max(int(x1) - pad, 0), max(int(y1) - pad, 0)
-        x2p, y2p = min(int(x2) + pad, w), min(int(y2) + pad, h)
+    for idx, (bbox, det_conf) in enumerate(detections, start=1):
+        x1, y1, x2, y2 = map(int, bbox[:4])
+        ocr_result = ocr_plate(
+            img,
+            (x1, y1, x2, y2),
+            ocr_model,
+            language=ocr_lang,
+            aggressive_preprocess=aggressive_preprocess,
+        )
 
-        plate_crop = img[y1p:y2p, x1p:x2p]
-        if plate_crop.size == 0 or x2p <= x1p or y2p <= y1p:
+        if ocr_result.get("score", 0) < min_score_ocr:
             continue
 
-        if plate_crop.shape[1] < 200:
-            scale = 200 / plate_crop.shape[1]
-            plate_crop = cv2.resize(plate_crop, (200, int(plate_crop.shape[0] * scale)))
+        label = f"{ocr_result.get('norm','')} ({ocr_result.get('score',0):.2f})"
+        cv2.rectangle(original_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(original_img, label, (x1, max(y1 - 10, 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-        _, temp_path = tempfile.mkstemp(suffix=".png")
-        cv2.imwrite(temp_path, plate_crop)
+        with st.expander(f"🔍 Résultat OCR pour la plaque #{idx}"):
+            st.image(cv2.cvtColor(img[y1:y2, x1:x2], cv2.COLOR_BGR2RGB), caption=f"Plaque #{idx}", use_container_width=True)
+            st.markdown(
+                f"""
+                - **Texte brut** : `{ocr_result.get('raw','')}`
+                - **Texte normalisé** : `{ocr_result.get('norm','')}`
+                - **Score final** : `{ocr_result.get('score',0):.2f}`
+                - **Série** : `{ocr_result.get('serie','')}`
+                - **Région** : `{ocr_result.get('region','')}`
+                """
+            )
 
-        try:
-            result = ocr.predict(temp_path)
-        except Exception as e:
-            st.warning(f" OCR échoué pour la plaque #{idx+1} : {e}")
-            continue
-
-        page = result[0]
-        cv2.rectangle(original_img, (x1p, y1p), (x2p, y2p), (0, 255, 0), 2)
-        cv2.putText(original_img, f"#{idx+1}", (x1p, y1p - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
-        with st.expander(f"🔍 Résultat OCR pour la plaque #{idx+1}"):
-            st.image(cv2.cvtColor(plate_crop, cv2.COLOR_BGR2RGB), caption=f"Plaque #{idx+1}", use_container_width=True)
-
-            for i, raw_text in enumerate(page['rec_texts']):
-                text = raw_text.strip().upper().replace(" ", "")
-                conf = page['rec_scores'][i]
-
-                serie = "Inconnue"
-                for name, pattern in series_patterns:
-                    if pattern.match(text):
-                        serie = name
-                        break
-
-                region = "Inconnue"
-                if serie == "Série normale":
-                    match = re.search(r"(\d{2})$", text)
-                    if match:
-                        region = regions_map.get(match.group(1), "Inconnue")
-
-                st.markdown(f"""
-                    - **Texte reconnu** : `{raw_text}`
-                    - **Confiance OCR** : `{conf:.2f}`
-                    - **Série** : `{serie}`
-                    - **Région** : `{region}`
-                """)
-
-                results_summary.append({
-                    "Plaque #": idx + 1,
-                    "Texte détecté": raw_text,
-                    "Confiance": round(conf, 2),
-                    "Série": serie,
-                    "Région": region
-                })
+        results_summary.append({
+            "Plaque #": idx,
+            "Texte détecté": ocr_result.get("raw", ""),
+            "Texte normalisé": ocr_result.get("norm", ""),
+            "Score": round(ocr_result.get("score", 0), 3),
+            "Série": ocr_result.get("serie", "Inconnue"),
+            "Région": ocr_result.get("region", "Inconnue"),
+            "Confiance YOLO": round(float(det_conf), 3),
+        })
 
     st.subheader("Image finale avec détections")
     st.image(cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB), use_container_width=True)
