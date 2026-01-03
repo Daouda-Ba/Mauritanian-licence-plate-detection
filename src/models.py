@@ -1,8 +1,9 @@
 """Model loading helpers with Streamlit caching."""
 
 from __future__ import annotations
-
 import streamlit as st
+import tempfile
+import cv2
 
 from src.config import YOLO_WEIGHTS_DEFAULT
 
@@ -10,42 +11,29 @@ from src.config import YOLO_WEIGHTS_DEFAULT
 @st.cache_resource(show_spinner=False)
 def load_yolo(weights_path: str = YOLO_WEIGHTS_DEFAULT):
     from ultralytics import YOLO
-
     return YOLO(weights_path)
 
 
 @st.cache_resource(show_spinner=False)
 def load_ocr(lang: str):
-    """
-    Load PaddleOCR for the selected language.
-
-    Returns a callable OCR object. Language is expected to be "English" or "Arabic".
-    """
     from paddleocr import PaddleOCR
 
     lang_code = "en" if lang.lower().startswith("en") else "ar"
-    # Using cls for rotated plates; enable mkldnn where available.
-    ocr = PaddleOCR(
-        use_angle_cls=True,
+    return PaddleOCR(
         lang=lang_code,
-        show_log=False,
+        use_textline_orientation=True
     )
-    return ocr
 
 
 def run_paddle_ocr(ocr, image):
     """
-    Execute OCR with compatibility across PaddleOCR versions.
-
-    The preferred signature is `ocr.ocr(image, cls=True)` (numpy BGR).
+    PaddleOCR 3.x SAFE MODE:
+    always use temp file (same behavior as original working code)
     """
-    if hasattr(ocr, "ocr"):
-        try:
-            return ocr.ocr(image, cls=True)
-        except TypeError:
-            # Older versions without cls argument already configured via constructor.
-            return ocr.ocr(image)
-    if hasattr(ocr, "predict"):
-        return ocr.predict(image)
-    raise AttributeError("OCR object does not expose 'ocr' or 'predict'")
+    if image is None or image.size == 0:
+        return []
 
+    _, tmp_path = tempfile.mkstemp(suffix=".png")
+    cv2.imwrite(tmp_path, image)
+
+    return ocr.predict(tmp_path)

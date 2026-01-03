@@ -54,6 +54,8 @@ if uploaded_file:
 
     for idx, (bbox, det_conf) in enumerate(detections, start=1):
         x1, y1, x2, y2 = map(int, bbox[:4])
+        cv2.rectangle(original_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
         ocr_result = ocr_plate(
             img,
             (x1, y1, x2, y2),
@@ -62,19 +64,34 @@ if uploaded_file:
             aggressive_preprocess=aggressive_preprocess,
         )
 
-        if ocr_result.get("score", 0) < min_score_ocr:
-            continue
-
-        label = f"{ocr_result.get('norm','')} ({ocr_result.get('score',0):.2f})"
-        cv2.rectangle(original_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(original_img, label, (x1, max(y1 - 10, 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
+        # 2) texte seulement si score OCR suffisant
+        if ocr_result.get("score", 0) >= min_score_ocr:
+            label = f"{ocr_result.get('norm','')} ({ocr_result.get('score',0):.2f})"
+            cv2.putText(
+                original_img,
+                label,
+                (x1, max(y1 - 10, 5)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2,
+            )
+        else:
+            # optionnel: afficher un petit label "OCR low"
+            cv2.putText(
+                original_img,
+                f"OCR<{min_score_ocr:.2f}",
+                (x1, max(y1 - 10, 5)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2,
+            )
         with st.expander(f"🔍 Résultat OCR pour la plaque #{idx}"):
             st.image(cv2.cvtColor(img[y1:y2, x1:x2], cv2.COLOR_BGR2RGB), caption=f"Plaque #{idx}", use_container_width=True)
             st.markdown(
                 f"""
                 - **Texte brut** : `{ocr_result.get('raw','')}`
-                - **Texte normalisé** : `{ocr_result.get('norm','')}`
                 - **Score final** : `{ocr_result.get('score',0):.2f}`
                 - **Série** : `{ocr_result.get('serie','')}`
                 - **Région** : `{ocr_result.get('region','')}`
@@ -84,7 +101,7 @@ if uploaded_file:
         results_summary.append({
             "Plaque #": idx,
             "Texte détecté": ocr_result.get("raw", ""),
-            "Texte normalisé": ocr_result.get("norm", ""),
+            # "Texte normalisé": ocr_result.get("norm", ""),
             "Score": round(ocr_result.get("score", 0), 3),
             "Série": ocr_result.get("serie", "Inconnue"),
             "Région": ocr_result.get("region", "Inconnue"),
