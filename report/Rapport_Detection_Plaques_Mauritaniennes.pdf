@@ -1,0 +1,435 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 1 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [ 3 0 R 5 0 R 7 0 R 9 0 R ] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 3211 >>
+stream
+BT
+/F1 11 Tf
+72 770 Td
+(RAPPORT TECHNIQUE ET SCIENTIFIQUE) Tj
+0 -14 Td
+(Détection et reconnaissance automatique des plaques d’immatriculation mauritaniennes) Tj
+0 -14 Td
+(YOLOv8 + PaddleOCR + règles métier) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Auteur : Équipe Visionary Minds) Tj
+0 -14 Td
+(Date : 2025) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(TABLE DES MATIÈRES) Tj
+0 -14 Td
+(1. Résumé exécutif) Tj
+0 -14 Td
+(2. Introduction et contexte) Tj
+0 -14 Td
+(3. État de l’art) Tj
+0 -14 Td
+(4. Architecture globale du système) Tj
+0 -14 Td
+(5. Détection des plaques \(YOLOv8\)) Tj
+0 -14 Td
+(6. Pipeline OCR \(PaddleOCR, prétraitement, normalisation, scoring\)) Tj
+0 -14 Td
+(7. Règles métier spécifiques aux plaques mauritaniennes) Tj
+0 -14 Td
+(8. Gestion des erreurs, bruit visuel et faux positifs) Tj
+0 -14 Td
+(9. Application Streamlit \(UX, fonctionnalités, choix techniques\)) Tj
+0 -14 Td
+(10. Résultats expérimentaux et analyses qualitatives) Tj
+0 -14 Td
+(11. Limites du système actuel) Tj
+0 -14 Td
+(12. Perspectives d’amélioration \(court / moyen / long terme\)) Tj
+0 -14 Td
+(13. Conclusion) Tj
+0 -14 Td
+(14. Annexes techniques) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(1. RÉSUMÉ EXÉCUTIF) Tj
+0 -14 Td
+(Ce projet propose une chaîne complète de détection et de reconnaissance des plaques) Tj
+0 -14 Td
+(mauritaniennes, intégrant un détecteur YOLOv8, un OCR PaddleOCR multilingue et une) Tj
+0 -14 Td
+(couche métier dédiée à la normalisation et à la validation des formats locaux. La) Tj
+0 -14 Td
+(solution traite des images et des vidéos, fournit des exports CSV, gère un suivi) Tj
+0 -14 Td
+(léger des plaques en vidéo et s’appuie sur une interface Streamlit pensée pour la) Tj
+0 -14 Td
+(validation rapide et la démonstration. L’ensemble démontre un niveau de maturité) Tj
+0 -14 Td
+(supérieur à un prototype académique : modularité claire, paramètres explicites,) Tj
+0 -14 Td
+(choix techniques justifiés et intégration de connaissances réglementaires.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(2. INTRODUCTION ET CONTEXTE) Tj
+0 -14 Td
+(L’identification fiable des plaques d’immatriculation est un enjeu majeur pour la) Tj
+0 -14 Td
+(sécurité routière, la lutte contre la fraude et la modernisation des services) Tj
+0 -14 Td
+(publics. En Mauritanie, la diversité des séries \(plaques normales, diplomatiques,) Tj
+0 -14 Td
+(services gouvernementaux, zones franches, etc.\) et la présence de textes bilingues) Tj
+0 -14 Td
+(complexifient la reconnaissance automatique. Le projet répond à ce contexte par) Tj
+0 -14 Td
+(une architecture unifiée permettant :) Tj
+0 -14 Td
+(- la localisation robuste des plaques dans des conditions variées,) Tj
+0 -14 Td
+(- la reconnaissance du texte en arabe et en français,) Tj
+0 -14 Td
+(- la validation du format et la déduction régionale,) Tj
+0 -14 Td
+(- l’exploitation opérationnelle via une interface interactive.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(3. ÉTAT DE L’ART) Tj
+0 -14 Td
+(Les systèmes modernes d’ALPR \(Automatic License Plate Recognition\) reposent) Tj
+0 -14 Td
+(habituellement sur deux étapes : détection d’objets puis OCR. Les approches) Tj
+0 -14 Td
+(classiques \(segmentation par contours, règles fixes\) se dégradent fortement sous) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 2 0 R /Resources << /Font << /F1 4 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 3960 >>
+stream
+BT
+/F1 11 Tf
+72 770 Td
+(variations d’angle, d’éclairage et de bruit. Les détecteurs de type YOLO offrent) Tj
+0 -14 Td
+(un compromis vitesse/précision robuste, tandis que les OCR contemporains \(PaddleOCR,) Tj
+0 -14 Td
+(Tesseract moderne, CRNN-CTC\) permettent la lecture multi-lingue. Le choix d’un) Tj
+0 -14 Td
+(pipeline YOLOv8 + PaddleOCR s’inscrit donc dans un standard académique et) Tj
+0 -14 Td
+(industriel, tout en offrant une compatibilité immédiate avec un usage temps réel.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(4. ARCHITECTURE GLOBALE DU SYSTÈME) Tj
+0 -14 Td
+(Le système est organisé de façon modulaire pour favoriser la maintenance et) Tj
+0 -14 Td
+(l’évolutivité. La logique est structurée autour des composants suivants :) Tj
+0 -14 Td
+(- Configuration centralisée : seuils et paramètres vidéo \(src/config.py\).) Tj
+0 -14 Td
+(- Chargement des modèles : YOLOv8 et PaddleOCR via cache Streamlit \(src/models.py\).) Tj
+0 -14 Td
+(- OCR et normalisation : prétraitement, scoring, classification \(src/ocr_pipeline.py\).) Tj
+0 -14 Td
+(- Règles métier : formats regex et mapping des régions \(src/patterns.py\).) Tj
+0 -14 Td
+(- Pipeline vidéo : tracking léger, rafraîchissement OCR, agrégation \(src/video_pipeline.py\).) Tj
+0 -14 Td
+(- Interface utilisateur : pages Streamlit pour image, vidéo, visualisation \(detection_image.py,) Tj
+0 -14 Td
+(  detection_video.py, visualisation.py\).) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Flux logique :) Tj
+0 -14 Td
+(1\) Acquisition image/vidéo → 2\) Détection YOLO → 3\) Crop + prétraitement →) Tj
+0 -14 Td
+(4\) OCR PaddleOCR → 5\) Normalisation + règles métier → 6\) Scoring → 7\) Affichage/export.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(5. DÉTECTION DES PLAQUES \(YOLOv8\)) Tj
+0 -14 Td
+(Le projet s’appuie sur YOLOv8 \(Ultralytics\) avec un poids par défaut best.pt. La) Tj
+0 -14 Td
+(configuration expose un seuil de confiance initial de 0,25, ajustable via UI. Ce) Tj
+0 -14 Td
+(choix est cohérent avec les contraintes temps réel : YOLOv8 combine rapidité,) Tj
+0 -14 Td
+(précision et facilité d’intégration. Les métriques d’entraînement disponibles) Tj
+0 -14 Td
+(indiquent des précisions élevées et des mAP stables dès les premières époques) Tj
+0 -14 Td
+(\(ex. precision ~0,95 et mAP@0.5 ~0,90 sur les premières itérations\), ce qui) Tj
+0 -14 Td
+(suggère un apprentissage correct sur le dataset d’entraînement. La page de) Tj
+0 -14 Td
+(visualisation exploite ces résultats pour tracer les courbes de performance.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Compromis : le seuil YOLO relativement bas favorise le rappel, tandis que la) Tj
+0 -14 Td
+(sélection top-k côté image limite les faux positifs. En vidéo, l’annotation peut) Tj
+0 -14 Td
+(être sous-échantillonnée \(mode rapide\), réduisant la charge de calcul sans) Tj
+0 -14 Td
+(perdre la stabilité visuelle grâce au tracking.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(6. PIPELINE OCR \(PADDLEOCR, PRÉTRAITEMENT, NORMALISATION, SCORING\)) Tj
+0 -14 Td
+(Le pipeline OCR suit un principe de simplicité robuste :) Tj
+0 -14 Td
+(- Prétraitement minimal \(redimensionnement à largeur minimale\) pour préserver la) Tj
+0 -14 Td
+(  structure des caractères et éviter des artefacts d’accentuation.) Tj
+0 -14 Td
+(- Passage à PaddleOCR, avec un choix explicite de langue \(anglais ou arabe\).) Tj
+0 -14 Td
+(- Extraction des candidats OCR avec scores et boîtes associées.) Tj
+0 -14 Td
+(- Normalisation alphanumérique \(suppression d’espaces, homogénéisation\) et) Tj
+0 -14 Td
+(  correction ciblée pour les plaques normales.) Tj
+0 -14 Td
+(- Scoring final ajusté selon la conformité à un format mauritanien connu.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Ce design réduit la complexité de prétraitement tout en augmentant la fiabilité) Tj
+0 -14 Td
+(sémantique via la validation métier. Il permet également d’absorber certaines) Tj
+0 -14 Td
+(confusions OCR \(lettres/chiffres\) grâce à des règles adaptatives.) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 4 0 R >> >> >>
+endobj
+9 0 obj
+<< /Length 3303 >>
+stream
+BT
+/F1 11 Tf
+72 770 Td
+() Tj
+0 -14 Td
+(7. RÈGLES MÉTIER SPÉCIFIQUES AUX PLAQUES MAURITANIENNES) Tj
+0 -14 Td
+(La connaissance locale est un facteur clé du projet. Les séries suivantes sont) Tj
+0 -14 Td
+(prises en compte via regex : série normale, diplomatique \(CD, CMD, CC\), ONU,) Tj
+0 -14 Td
+(ASNA, TT, IT, IF, Zone Franche, Services Gouvernementaux, Conseil Constitutionnel,) Tj
+0 -14 Td
+(services parlementaires, tricycles, format spécial. Pour les plaques normales,) Tj
+0 -14 Td
+(les deux derniers chiffres permettent de déduire la région administrative) Tj
+0 -14 Td
+(\(Nouakchott, Trarza, Adrar, etc.\). Cette couche métier transforme un OCR brut) Tj
+0 -14 Td
+(en une information contextualisée exploitable par les services.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(8. GESTION DES ERREURS, BRUIT VISUEL ET FAUX POSITIFS) Tj
+0 -14 Td
+(La robustesse face au bruit réel est traitée à plusieurs niveaux :) Tj
+0 -14 Td
+(- seuils configurables pour la détection et l’OCR,) Tj
+0 -14 Td
+(- bonus/malus de score selon la conformité au format,) Tj
+0 -14 Td
+(- rafraîchissement OCR en vidéo pour corriger les erreurs transitoires,) Tj
+0 -14 Td
+(- agrégation par track pour stabiliser les résultats.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Cette approche hybride \(vision + règles métier\) limite les erreurs typiques de) Tj
+0 -14 Td
+(l’OCR sur des images floues ou partiellement occultées. La décision finale est) Tj
+0 -14 Td
+(donc moins sensible aux variations instantanées.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(9. APPLICATION STREAMLIT \(UX, FONCTIONNALITÉS, CHOIX TECHNIQUES\)) Tj
+0 -14 Td
+(L’interface Streamlit est structurée en quatre pages : accueil, visualisation,) Tj
+0 -14 Td
+(détection sur image, détection sur vidéo/webcam. Les fonctionnalités clés sont :) Tj
+0 -14 Td
+(- réglage des seuils YOLO et OCR,) Tj
+0 -14 Td
+(- sélection de langue OCR,) Tj
+0 -14 Td
+(- mode rapide pour la vidéo,) Tj
+0 -14 Td
+(- export CSV des résultats,) Tj
+0 -14 Td
+(- export vidéo annotée,) Tj
+0 -14 Td
+(- visualisations des distributions et métriques d’entraînement.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Ces choix UX facilitent l’évaluation rapide du système par un jury ou un acteur) Tj
+0 -14 Td
+(industriel, tout en servant de base à une exploitation opérationnelle.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(10. RÉSULTATS EXPÉRIMENTAUX ET ANALYSES QUALITATIVES) Tj
+0 -14 Td
+(Les résultats de détection montrent une convergence rapide des métriques) Tj
+0 -14 Td
+(\(precision, recall, mAP\). En pratique, l’application restitue :) Tj
+0 -14 Td
+(- une image annotée avec les plaques détectées,) Tj
+0 -14 Td
+(- un texte OCR normalisé avec score,) Tj
+0 -14 Td
+(- une classification de série et une estimation régionale.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(En vidéo, le tracking léger stabilise les sorties et permet une synthèse par) Tj
+0 -14 Td
+(plaques uniques. Ce comportement est crucial pour des scénarios routiers où une) Tj
+0 -14 Td
+(même plaque est vue sur plusieurs frames.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(11. LIMITES DU SYSTÈME ACTUEL) Tj
+0 -14 Td
+(- Prétraitement limité : certaines plaques très bruitées ou obliques restent) Tj
+0 -14 Td
+(  difficiles à lire sans correction géométrique.) Tj
+0 -14 Td
+(- Tracking simple : l’association IoU reste fragile aux occlusions prolongées.) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 6 0 R /Resources << /Font << /F1 4 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 2081 >>
+stream
+BT
+/F1 11 Tf
+72 770 Td
+(- Langues OCR limitées : les polices ou styles non standard peuvent dégrader) Tj
+0 -14 Td
+(  la reconnaissance.) Tj
+0 -14 Td
+(- Évaluation terrain : absence d’un protocole complet de tests en conditions) Tj
+0 -14 Td
+(  routières variées \(jour/nuit, météo, vitesse\).) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(12. PERSPECTIVES D’AMÉLIORATION) Tj
+0 -14 Td
+(Court terme :) Tj
+0 -14 Td
+(- ajouter un mode de prétraitement avancé optionnel \(contraste adaptatif,) Tj
+0 -14 Td
+(  correction perspective\), déclenché selon la qualité d’image.) Tj
+0 -14 Td
+(- enrichir les règles de normalisation avec des corrections basées sur la série.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Moyen terme :) Tj
+0 -14 Td
+(- remplacer l’IoU par un tracking multi-objet plus robuste \(Kalman + association) Tj
+0 -14 Td
+(  Hongroise\) pour stabiliser l’identité des plaques.) Tj
+0 -14 Td
+(- introduire un calibrage dynamique des seuils selon l’éclairage et le flou.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Long terme :) Tj
+0 -14 Td
+(- intégration à une plateforme nationale \(multi-caméras, base de données,) Tj
+0 -14 Td
+(  traçabilité légale\).) Tj
+0 -14 Td
+(- supervision continue du modèle \(réentraînement, validation périodique\).) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(13. CONCLUSION) Tj
+0 -14 Td
+(Le projet combine efficacement détection, OCR et intelligence métier. La) Tj
+0 -14 Td
+(séparation des modules, l’intégration Streamlit et la prise en compte des règles) Tj
+0 -14 Td
+(mauritaniennes positionnent cette solution comme un socle sérieux pour un système) Tj
+0 -14 Td
+(industriel. L’architecture actuelle permet une montée en charge progressive,) Tj
+0 -14 Td
+(avec une marge d’amélioration claire vers un usage national.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(14. ANNEXES TECHNIQUES) Tj
+0 -14 Td
+(- Paramètres clés : seuils YOLO/OCR, rafraîchissement OCR, tracking IoU.) Tj
+0 -14 Td
+(- Modules principaux : src/ocr_pipeline.py, src/video_pipeline.py, src/patterns.py.) Tj
+0 -14 Td
+(- Outils de validation : visualisation du dataset et courbes de performance.) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 8 0 R /Resources << /Font << /F1 4 0 R >> >> >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000135 00000 n 
+0000000205 00000 n 
+0000000275 00000 n 
+0000003538 00000 n 
+0000003664 00000 n 
+0000007676 00000 n 
+0000007802 00000 n 
+0000011157 00000 n 
+0000011284 00000 n 
+0000013418 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R >>
+startxref
+13545
+%%EOF
