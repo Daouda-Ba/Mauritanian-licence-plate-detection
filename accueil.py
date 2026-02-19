@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.title("Détection & Lecture de Plaques Mauritaniennes – Datathon 2025 ESPDC")
+st.title("Détection & Lecture de Plaques Mauritaniennes")
 
 # Introduction
 st.markdown("""
@@ -70,6 +70,6 @@ with col5:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; margin-top: 50px;">
-    <p><strong>Developed by Visionary Minds</strong> – Datathon 2025 ESPDC</p>
+    <p><strong>Developed by Visionary Minds</strong></p>
 </div>
 """, unsafe_allow_html=True)
